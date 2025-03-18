@@ -9,12 +9,13 @@ return new class extends Migration
     /**
      * Run the migrations.
      */
-    public function up()
+    public function up(): void
     {
         Schema::create('quotes', function (Blueprint $table) {
             $table->id();
-            $table->string('text');
+            $table->string('phrase'); // Ganti 'quote' jadi 'phrase'
             $table->string('author')->nullable();
+            $table->boolean('religion')->default(0); // Tambah kolom religion
             $table->timestamps();
         });
     }

@@ -5,44 +5,87 @@ namespace App\Http\Controllers;
 use App\Models\Quote;
 use Illuminate\Http\Request;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
+use Illuminate\Support\Facades\Cache;
 
 class QuoteController extends Controller
 {
-    public function fetchFromApi(){
-        $client = new Client();
-        $Response = $client->get('https://gomezmig03.github.io/MotivationalAPI/en.json');
-        $quotes = json_decode($response->getBody(),true);
+    // Tampilan dashboard (root)
+    public function index()
+    {
+        $quotes = Quote::paginate(10); // Quotes yang sudah ditambahkan
+        return view('quotes.index', compact('quotes'));
+    }
 
-        foreach($quotes as $quote){
-            Quote::updateOrCreate(
-                ['text' => $quote['text']],
-                ['author' => $quote['author']]
-            );
+    // Form cari author dan pilih quote
+    public function create()
+    {
+        $recommendations = [];
+        return view('quotes.create', compact('recommendations'));
+    }
+
+    // Search author dan tampilkan rekomendasi
+    public function searchAuthor(Request $request)
+    {
+        $keyword = $request->input('author');
+        $allQuotes = Cache::remember('api_quotes', 60, function () {
+            $client = new Client();
+            $response = $client->get('https://gomezmig03.github.io/MotivationalAPI/en.json'); // Data JSON lokal
+            $data = json_decode($response->getBody(), true);
+            return is_array($data) ? $data : [];
+        });
+
+        // Filter quotes berdasarkan author
+        $recommendations = array_filter($allQuotes, function ($quote) use ($keyword) {
+            return stripos($quote['author'] ?? '', $keyword) !== false;
+        });
+
+        return view('quotes.create', compact('recommendations'));
+    }
+
+    // Simpan quote (dari rekomendasi atau custom)
+    public function store(Request $request)
+    {
+        $validatedData = $request->validate([
+            'phrase' => 'required|string|max:255',
+            'author' => 'nullable|string|max:255',
+            'religion' => 'nullable|boolean',
+        ]);
+        // Pastikan phrase tidak kosong
+        if (empty($validatedData['phrase'])) {
+            return redirect()->back()->with('error', 'Quote cannot be empty.');
         }
-        return redirect()->route('quotes.index')->with('succes','Quotes fetched succesfully');
+
+        Quote::create($validatedData);
+        return redirect()->route('quotes.index')->with('success', 'Quote added to dashboard!');
     }
-    public function index(){
-        $quotes = Quote::all();
-        return view('quotes.index',compact('quotes'));
-    }
-    public function store(Request $request){
-        $request->validate([
-            'text' => 'required',
-            'author' => 'nullable'
+
+    // Update quote di dashboard
+    public function update(Request $request, Quote $quote)
+    {
+        $validatedData = $request->validate([
+            'phrase' => 'required|string|max:255',
+            'author' => 'nullable|string|max:255',
+            'religion' => 'nullable|boolean',
         ]);
-        Quote::create($request->all);
-        return redirect()->route('quotes.index')->with('success','Quote added!');
+        $quote->update($validatedData);
+        return redirect()->route('quotes.index')->with('success', 'Quote updated!');
     }
-    public function update(Request $request, Quote $quote){
-        $request->validate([
-            'text' => 'required',
-            'author' => 'nullable'
-        ]);
-        $quote->update($request->all());
-        return redirect()->route('quotes.index')->with('success','Quote updated!');
-    }
-    public function destroy(Quote $quotes){
+
+    // Hapus quote dari dashboard
+    public function destroy(Quote $quote)
+    {
         $quote->delete();
-        return redirect()->route('quotes.index')->with('success','Quote deleted!');
+        return redirect()->route('quotes.index')->with('success', 'Quote deleted!');
+    }
+
+    // Search quotes di dashboard
+    public function search(Request $request)
+    {
+        $keyword = $request->input('keyword');
+        $quotes = Quote::where('phrase', 'like', "%{$keyword}%")
+                      ->orWhere('author', 'like', "%{$keyword}%")
+                      ->paginate(10);
+        return view('quotes.index', compact('quotes'))->with('success', 'Search results for: ' . $keyword);
     }
 }
