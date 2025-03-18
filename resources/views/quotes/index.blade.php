@@ -55,6 +55,7 @@
             background: #fff;
             border-radius: 10px;
             overflow: hidden;
+            width: 100%;
         }
         th {
             background-color: #3498db;
@@ -63,17 +64,21 @@
         }
         td {
             vertical-align: middle;
-            text-align: center;
             padding: 15px;
         }
         tr:hover {
             background-color: #ecf0f1;
             transition: all 0.3s ease;
         }
-        .btn-warning, .btn-danger {
+        .btn-action {
             margin: 0 5px;
-            padding: 5px 10px;
+            padding: 8px 12px;
+            font-size: 14px;
             transition: all 0.3s ease;
+            border-radius: 5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
         }
         .btn-warning {
             background-color: #f1c40f;
@@ -91,27 +96,94 @@
             background-color: #c0392b;
             transform: translateY(-2px);
         }
+        /* Styling Pagination */
         .pagination {
             justify-content: center;
+            margin-top: 20px;
         }
-        .modal-content {
-            border-radius: 10px;
+        .pagination .page-item {
+            margin: 0 5px;
         }
-        .modal-header {
+        .pagination .page-link {
+            background-color: #fff;
+            color: #2c3e50;
+            border: 1px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            padding: 0;
+            font-weight: bold;
+        }
+        .pagination .page-link:hover,
+        .pagination .page-item.active .page-link {
             background-color: #3498db;
             color: #fff;
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
+            transform: translateY(-2px);
         }
-        .modal-footer .btn-primary {
+        .pagination .page-item.disabled .page-link {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* Custom Previous/Next Buttons */
+        .pagination .page-item.prev .page-link {
+            border-radius: 5px;
+            background-color: #000;
+            color: #fff;
+        }
+        .pagination .page-item.prev .page-link:hover {
+            background-color: #333;
+        }
+        .pagination .page-item.next .page-link {
+            border-radius: 5px;
             background-color: #3498db;
+            color: #fff;
         }
-        .modal-footer .btn-primary:hover {
+        .pagination .page-item.next .page-link:hover {
             background-color: #2980b9;
+        }
+        .decoration {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            opacity: 0.5;
+        }
+        /* Tabel Custom Styling */
+        .quote-table td:first-child {
+            text-align: left;
+            max-width: 0; /* Membantu mengatur lebar kolom */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .quote-table td:nth-child(2),
+        .quote-table td:nth-child(3) {
+            text-align: center;
+            max-width: 150px; /* Batasi lebar kolom Author dan Religion */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .quote-table td:last-child {
+            text-align: center;
+            white-space: nowrap; /* Pastikan tombol tidak pindah baris */
+        }
+        .quote-table .action-buttons {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
         }
     </style>
 </head>
 <body>
+    <!-- Dekorasi (Ikon atau Gambar Kecil) -->
+    <img src="https://img.icons8.com/ios-filled/50/3498db/quote.png" alt="Quote Icon" class="decoration">
+
     <div class="container mt-5">
         <h1>My Quotes Dashboard</h1>
         @if (session('success'))
@@ -129,7 +201,7 @@
             </div>
         </div>
 
-        <table class="table table-striped table-hover">
+        <table class="table table-striped table-hover quote-table">
             <thead>
                 <tr>
                     <th>Quote</th>
@@ -144,16 +216,16 @@
                         <td>{{ $quote->phrase }}</td>
                         <td>{{ $quote->author }}</td>
                         <td>{{ $quote->religion ? 'Religious' : 'Non-Religious' }}</td>
-                        <td>
+                        <td class="action-buttons">
                             <!-- Tombol Edit (Memicu Modal) -->
-                            <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editModal{{ $quote->id }}">
+                            <button class="btn btn-warning btn-action" data-bs-toggle="modal" data-bs-target="#editModal{{ $quote->id }}">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
                             <!-- Tombol Delete -->
                             <form action="{{ route('quotes.destroy', $quote) }}" method="POST" style="display:inline;">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="btn btn-danger btn-sm">
+                                <button type="submit" class="btn btn-danger btn-action">
                                     <i class="fas fa-trash-alt"></i> Delete
                                 </button>
                             </form>
@@ -203,7 +275,32 @@
                 @endforelse
             </tbody>
         </table>
-        {{ $quotes->links() }}
+
+        <!-- Pagination Kustom -->
+        <nav aria-label="Page navigation">
+            <ul class="pagination">
+                <!-- Previous Button -->
+                <li class="page-item prev {{ $quotes->onFirstPage() ? 'disabled' : '' }}">
+                    <a class="page-link" href="{{ $quotes->previousPageUrl() }}" aria-label="Previous">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+
+                <!-- Nomor Halaman -->
+                @foreach ($quotes->getUrlRange(1, $quotes->lastPage()) as $page => $url)
+                    <li class="page-item {{ $quotes->currentPage() == $page ? 'active' : '' }}">
+                        <a class="page-link" href="{{ $url }}">{{ $page }}</a>
+                    </li>
+                @endforeach
+
+                <!-- Next Button -->
+                <li class="page-item next {{ $quotes->hasMorePages() ? '' : 'disabled' }}">
+                    <a class="page-link" href="{{ $quotes->nextPageUrl() }}" aria-label="Next">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
     </div>
 
     <!-- Bootstrap JS dan Font Awesome JS -->
